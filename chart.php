@@ -104,7 +104,7 @@ $conn->close();
 </head>
 
 <body>
-<header class="header">
+    <header class="header">
         <div class="logo-section">
             <img src="img/logo.jpg" alt="" class="logo">
             <h1 href="ceo_home_page.html" style="font-family: Itim;">CEO - HOME</h1>
@@ -144,14 +144,14 @@ $conn->close();
                     </select>
 
                     <!-- แก้เป็น radio -->
-                    <label for="filter-age">อายุ:</label>
-                    <input type="radio" id="ageChoice1" name="ageChoice"> เด็กทารกแรกเกิด(ไม่ถึง1ปีเต็ม)
-                    <br>
-                    <input type="radio" id="ageChoice2" name="ageChoice" checked> 1 ปีขึ้นไป
-                    <br>
-                    <input class="input-age" value="1" min="1" type="number" > ถึง
-                    <input class="input-age" value="120" min="1" max="120" type="number" > ปี
+                    <label>ช่วงอายุ:</label>
+                    <input type="number" id="minAge" class="age-input" value="<?php echo $min_age; ?>" min="0" max="100">
+                    <span>ถึง</span>
+                    <input type="number" id="maxAge" class="age-input" value="<?php echo $max_age; ?>" min="0" max="100">
+                    <span>ปี</span>
+                    <button onclick="updateAgeRange()">กรอง</button>
                     <br><br>
+
                     <label for="filter-symtom">สาเหตุ/อาการป่วย:</label>
                     <select id="filter-symtom-list" class="filter-select">
                         <option value="" selected hidden>กรุณาเลือก</option>
@@ -165,7 +165,7 @@ $conn->close();
                     <select id="filter-hospital-list" class="filter-select">
                         <option value="" selected hidden>กรุณาเลือกโรงพยาบาล</option>
                         <option value="0" selected>ทั้งหมด</option>
-                        <option value="1" >โรงพยาบาลศูนย์มะเร็งกรุงเทพฯ</option>
+                        <option value="1">โรงพยาบาลศูนย์มะเร็งกรุงเทพฯ</option>
                         <option value="2">โรงพยาบาลมนารมย์</option>
                         <option value="3">โรงพยาบาลปิยะเวท</option>
                         <option value="4">โรงพยาบาลเสรีรักษ์</option>
@@ -350,13 +350,13 @@ $conn->close();
                         <option value="บางบอน">บางบอน</option>
                     </select>
 
-                   
 
-        
+
+
                 </div>
             </div>
         </div>
-      
+
     </main>
 
     <canvas id="case"></canvas>
@@ -423,11 +423,11 @@ $conn->close();
         });
         document.getElementById('filter-gender-list').addEventListener('change', function() {
             const gender = this.value;
-            
+
             if (gender === 'ชาย') {
                 mychart.data.datasets[0].hidden = false;
                 mychart.data.datasets[1].hidden = true;
-            } else if(gender === 'หญิง') {
+            } else if (gender === 'หญิง') {
                 mychart.data.datasets[0].hidden = true;
                 mychart.data.datasets[1].hidden = false;
             } else {
@@ -436,20 +436,20 @@ $conn->close();
             }
             mychart.update();
         });
-                
+
 
         function updateAgeRange() {
             const minAge = document.getElementById('minAge').value;
             const maxAge = document.getElementById('maxAge').value;
-            
+
             if (parseInt(minAge) > parseInt(maxAge)) {
                 alert('กรุณาระบุช่วงอายุให้ถูกต้อง');
                 return;
             }
-            
+
             window.location.href = `chart.php?min_age=${minAge}&max_age=${maxAge}`;
         }
-         
+
         // สคริปต์สำหรับเปิด-ปิด Sidebar
         document.addEventListener("DOMContentLoaded", () => {
             const filterIcon = document.querySelector(".filter-icon");
@@ -485,13 +485,13 @@ $conn->close();
         // updateValue();
         // ตั้งค่าปฏิทิน Flatpickr
         flatpickr("#calendarSelect", {
-            dateFormat: "Y-m-d",  // รูปแบบวันที่เป็น YYYY-MM-DD
-            onChange: function (selectedDates, dateStr, instance) {
+            dateFormat: "Y-m-d", // รูปแบบวันที่เป็น YYYY-MM-DD
+            onChange: function(selectedDates, dateStr, instance) {
                 // เมื่อผู้ใช้เลือกวันที่, เรียกใช้งานฟังก์ชัน updateChart
                 updateChart(dateStr);
             }
         });
-    
     </script>
 </body>
+
 </html>
