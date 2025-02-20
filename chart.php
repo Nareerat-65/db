@@ -1,10 +1,14 @@
 <?php
+// ตั้งค่าการเชื่อมต่อฐานข้อมูล
 $host = 'localhost';
 $user = 'root';
 $password = '1234';
 $database = 'car_report';
 
+// สร้างการเชื่อมต่อฐานข้อมูล
 $conn = new mysqli($host, $user, $password, $database);
+
+// ตรวจสอบการเชื่อมต่อ
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
@@ -17,8 +21,6 @@ $selected_gender = isset($_GET['gender']) ? $_GET['gender'] : "ทั้งห�
 $selected_symptom = isset($_GET['symptom']) ? $_GET['symptom'] : "ทั้งหมด";
 $selected_hospital = isset($_GET['hospital']) ? $_GET['hospital'] : "ทั้งหมด";
 $selected_zone = isset($_GET['zone']) ? $_GET['zone'] : "ทั้งหมด";
-
-
 
 // สร้าง WHERE Clause ตามฟิลเตอร์ที่เลือก
 $where_clause = "WHERE report_patient_age BETWEEN $min_age AND $max_age";
@@ -42,8 +44,6 @@ if ($selected_zone !== "ทั้งหมด") {
     $where_clause .= " AND emergency_case_zone = '$selected_zone'";
 }
 
-
-
 // Query ดึงข้อมูล
 $sql = "SELECT 
     report_reason,
@@ -55,6 +55,7 @@ $sql = "SELECT
 
 $result = $conn->query($sql);
 
+// เตรียมข้อมูลสำหรับกราฟ
 $labels = [];
 $maleData = [];
 $femaleData = [];
@@ -67,6 +68,7 @@ if ($result->num_rows > 0) {
     }
 }
 
+// Query ดึงข้อมูลโรงพยาบาล
 $hospital_query = "SELECT DISTINCT hospital_waypoint FROM emergency_case";
 $hospital_result = $conn->query($hospital_query);
 
@@ -77,6 +79,7 @@ if ($hospital_result->num_rows > 0) {
     }
 }
 
+// Query ดึงข้อมูลเขตพื้นที่เกิดเหตุ
 $zone_query = "SELECT DISTINCT emergency_case_zone FROM emergency_case";
 $zone_result = $conn->query($zone_query);
 
@@ -87,8 +90,7 @@ if ($zone_result->num_rows > 0) {
     }
 }
 
-
-
+// ปิดการเชื่อมต่อฐานข้อมูล
 $conn->close();
 ?>
 
@@ -176,7 +178,6 @@ $conn->close();
                     <label for="calendarSelect">เลือกวันที่:</label>
                     <input class="calendar-selected" id="calendarSelect" type="text" placeholder="เลือกวันที่" value="2025-01-22">
 
-
                     <label for="filter-gender">เพศ:</label>
                     <select id="filter-gender-list" class="filter-select">
                         <option value="ทั้งหมด" <?php if ($selected_gender == "ทั้งหมด") echo "selected"; ?>>ทั้งหมด</option>
@@ -219,22 +220,20 @@ $conn->close();
                             </option>
                         <?php endforeach; ?>
                     </select>
-
-
-
                 </div>
             </div>
         </div>
-
     </main>
 
     <canvas id="case"></canvas>
 
     <script>
+        // รับข้อมูลจาก PHP เพื่อใช้ในกราฟ
         const labels = <?php echo json_encode($labels); ?>;
         const maleData = <?php echo json_encode($maleData); ?>;
         const femaleData = <?php echo json_encode($femaleData); ?>;
 
+        // สร้างกราฟด้วย Chart.js
         const mychart = new Chart(document.getElementById("case"), {
             type: 'bar',
             data: {
@@ -290,7 +289,7 @@ $conn->close();
                 }
             }
         });
-        
+
         // สคริปต์สำหรับเปิด-ปิด Sidebar
         document.addEventListener("DOMContentLoaded", () => {
             const filterIcon = document.querySelector(".filter-icon");
@@ -313,16 +312,16 @@ $conn->close();
                     sidebar.classList.remove("open");
                 }
             });
-
         });
 
+        // ตั้งค่า Flatpickr สำหรับเลือกวันที่
         flatpickr("#calendarSelect", {
             dateFormat: "Y-m-d",
             defaultDate: "<?php echo $selected_date; ?>",
             onChange: updateFilters
         });
 
-
+        // ฟังก์ชันสำหรับอัปเดตฟิลเตอร์และโหลดข้อมูลใหม่
         function updateFilters() {
             const date = document.getElementById("calendarSelect").value;
             const gender = document.getElementById("filter-gender-list").value;
@@ -368,19 +367,17 @@ $conn->close();
                 .catch(error => console.error('Error fetching updated data:', error));
         }
 
-
-
+        // ตั้งค่า Event Listeners สำหรับฟิลเตอร์
         document.getElementById("calendarSelect").flatpickr({
             dateFormat: "Y-m-d",
             onChange: updateFilters
         });
-        document.getElementById("filter-gender-list").addEventListener("change", updateFilters); // ใช้ ID ถูกต้อง
-        document.getElementById("filter-symtom-list").addEventListener("change", updateFilters); // ใช้ ID ถูกต้อง
+        document.getElementById("filter-gender-list").addEventListener("change", updateFilters);
+        document.getElementById("filter-symtom-list").addEventListener("change", updateFilters);
         document.getElementById("minAge").addEventListener("input", updateFilters);
         document.getElementById("maxAge").addEventListener("input", updateFilters);
         document.getElementById("filter-hospital-list").addEventListener("change", updateFilters);
         document.getElementById("filter-zone-list").addEventListener("change", updateFilters);
-
     </script>
 </body>
 
