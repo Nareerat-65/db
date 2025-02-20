@@ -137,19 +137,6 @@ $conn->close();
             border: 1px solid #ddd;
         }
 
-        button {
-            padding: 8px 15px;
-            font-size: 16px;
-            border-radius: 4px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
     </style>
 </head>
 
@@ -303,84 +290,7 @@ $conn->close();
                 }
             }
         });
-        const originalLabels = [...labels]; // Store original labels
-        const originalMaleData = [...maleData]; // Store original male data
-        const originalFemaleData = [...femaleData]; // Store original female data
-
-        document.getElementById('filter-symtom-list').addEventListener('change', function() {
-            const symptom = this.value;
-
-            if (symptom === 'ทั้งหมด') {
-                // Show all data
-                mychart.data.labels = originalLabels;
-                mychart.data.datasets[0].data = originalMaleData;
-                mychart.data.datasets[1].data = originalFemaleData;
-            } else if (symptom === 'อื่นๆ') {
-                // Filter out labels that don't contain 'อุบัติเหตุ' or 'อาการป่วย'
-                const filteredIndices = originalLabels.reduce((acc, label, index) => {
-                    if (!label.includes('อุบัติเหตุ') && !label.includes('อาการป่วย')) {
-                        acc.push(index);
-                    }
-                    return acc;
-                }, []);
-
-                const filteredLabels = filteredIndices.map(i => originalLabels[i]);
-                const filteredMaleData = filteredIndices.map(i => originalMaleData[i]);
-                const filteredFemaleData = filteredIndices.map(i => originalFemaleData[i]);
-
-                mychart.data.labels = filteredLabels;
-                mychart.data.datasets[0].data = filteredMaleData;
-                mychart.data.datasets[1].data = filteredFemaleData;
-            } else {
-                // Filter data based on selected symptom (อุบัติเหตุ or อาการป่วย)
-                const filteredIndices = originalLabels.reduce((acc, label, index) => {
-                    if (label.includes(symptom)) {
-                        acc.push(index);
-                    }
-                    return acc;
-                }, []);
-
-                const filteredLabels = filteredIndices.map(i => originalLabels[i]);
-                const filteredMaleData = filteredIndices.map(i => originalMaleData[i]);
-                const filteredFemaleData = filteredIndices.map(i => originalFemaleData[i]);
-
-                mychart.data.labels = filteredLabels;
-                mychart.data.datasets[0].data = filteredMaleData;
-                mychart.data.datasets[1].data = filteredFemaleData;
-            }
-
-            mychart.update();
-        });
-
-        document.getElementById('filter-gender-list').addEventListener('change', function() {
-            const gender = this.value;
-
-            if (gender === 'ชาย') {
-                mychart.data.datasets[0].hidden = false;
-                mychart.data.datasets[1].hidden = true;
-            } else if (gender === 'หญิง') {
-                mychart.data.datasets[0].hidden = true;
-                mychart.data.datasets[1].hidden = false;
-            } else {
-                mychart.data.datasets[0].hidden = false;
-                mychart.data.datasets[1].hidden = false;
-            }
-            mychart.update();
-        });
-
-
-        function updateAgeRange() {
-            const minAge = document.getElementById('minAge').value;
-            const maxAge = document.getElementById('maxAge').value;
-
-            if (parseInt(minAge) > parseInt(maxAge)) {
-                alert('กรุณาระบุช่วงอายุให้ถูกต้อง');
-                return;
-            }
-
-            window.location.href = `chart.php?min_age=${minAge}&max_age=${maxAge}`;
-        }
-
+        
         // สคริปต์สำหรับเปิด-ปิด Sidebar
         document.addEventListener("DOMContentLoaded", () => {
             const filterIcon = document.querySelector(".filter-icon");
