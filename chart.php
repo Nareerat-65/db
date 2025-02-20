@@ -5,18 +5,40 @@ $password = '1234';
 $database = 'car_report';
 
 $conn = new mysqli($host, $user, $password, $database);
-
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Get age range from GET parameters
+// รับค่าฟิลเตอร์จาก GET parameters
 $min_age = isset($_GET['min_age']) ? (int)$_GET['min_age'] : 0;
 $max_age = isset($_GET['max_age']) ? (int)$_GET['max_age'] : 100;
+$selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+$selected_gender = isset($_GET['gender']) ? $_GET['gender'] : "ทั้งหมด";
+$selected_symptom = isset($_GET['symptom']) ? $_GET['symptom'] : "ทั้งหมด";
+$selected_hospital = isset($_GET['hospital']) ? $_GET['hospital'] : "ทั้งหมด";
 
-// Create where clause for age range
+
+// สร้าง WHERE Clause ตามฟิลเตอร์ที่เลือก
 $where_clause = "WHERE report_patient_age BETWEEN $min_age AND $max_age";
+if ($selected_date) {
+    $where_clause .= " AND DATE(report_date) = '$selected_date'";
+}
+if ($selected_gender !== "ทั้งหมด") {
+    $where_clause .= " AND report_patient_gender = '$selected_gender'";
+}
+if ($selected_symptom !== "ทั้งหมด") {
+    if ($selected_symptom === "อื่นๆ") {
+        $where_clause .= " AND report_reason NOT LIKE '%อุบัติเหตุ%' AND report_reason NOT LIKE '%อาการป่วย%'";
+    } else {
+        $where_clause .= " AND report_reason LIKE '%$selected_symptom%'";
+    }
+}
+if ($selected_hospital !== "ทั้งหมด") {
+    $where_clause .= " AND hospital_waypoint = '$selected_hospital'";
+}
 
+
+// Query ดึงข้อมูล
 $sql = "SELECT 
     report_reason,
     SUM(CASE WHEN report_patient_gender = 'ชาย' THEN 1 ELSE 0 END) as male_count,
@@ -38,6 +60,17 @@ if ($result->num_rows > 0) {
         $femaleData[] = $row['female_count'];
     }
 }
+
+$hospital_query = "SELECT DISTINCT hospital_waypoint FROM emergency_case";
+$hospital_result = $conn->query($hospital_query);
+
+$hospital_options = [];
+if ($hospital_result->num_rows > 0) {
+    while ($row = $hospital_result->fetch_assoc()) {
+        $hospital_options[] = $row['hospital_waypoint'];
+    }
+}
+
 
 $conn->close();
 ?>
@@ -118,6 +151,11 @@ $conn->close();
             <a href="static_car_page.html" class="nav-item">สถิติการใช้งานรถ</a>
         </nav>
     </header>
+
+    <div id="chart-labels" style="display: none;"><?php echo json_encode($labels); ?></div>
+    <div id="chart-maleData" style="display: none;"><?php echo json_encode($maleData); ?></div>
+    <div id="chart-femaleData" style="display: none;"><?php echo json_encode($femaleData); ?></div>
+
     <h1 style="text-align: center;">ดูสรุปรายงานเคสฉุกเฉิน</h1>
     <main class="main-content">
         <div class="search-section">
@@ -137,10 +175,9 @@ $conn->close();
 
                     <label for="filter-gender">เพศ:</label>
                     <select id="filter-gender-list" class="filter-select">
-                        <option value="" selected hidden>กรุณาเลือกเพศ</option>
-                        <option value="ทั้งหมด" selected>ทั้งหมด</option>
-                        <option value="ชาย">ชาย</option>
-                        <option value="หญิง">หญิง</option>
+                        <option value="ทั้งหมด" <?php if ($selected_gender == "ทั้งหมด") echo "selected"; ?>>ทั้งหมด</option>
+                        <option value="ชาย" <?php if ($selected_gender == "ชาย") echo "selected"; ?>>ชาย</option>
+                        <option value="หญิง" <?php if ($selected_gender == "หญิง") echo "selected"; ?>>หญิง</option>
                     </select>
 
                     <!-- แก้เป็น radio -->
@@ -149,208 +186,25 @@ $conn->close();
                     <span>ถึง</span>
                     <input type="number" id="maxAge" class="age-input" value="<?php echo $max_age; ?>" min="0" max="100">
                     <span>ปี</span>
-                    <button onclick="updateAgeRange()">กรอง</button>
                     <br><br>
 
                     <label for="filter-symtom">สาเหตุ/อาการป่วย:</label>
                     <select id="filter-symtom-list" class="filter-select">
-                        <option value="" selected hidden>กรุณาเลือก</option>
-                        <option value="ทั้งหมด" selected>ทั้งหมด</option>
-                        <option value="อุบัติเหตุ">อุบัติเหตุ</option>
-                        <option value="อาการป่วย">อาการป่วย</option>
-                        <option value="อื่นๆ">อื่นๆ</option>
+                        <option value="ทั้งหมด" <?php if ($selected_symptom == "ทั้งหมด") echo "selected"; ?>>ทั้งหมด</option>
+                        <option value="อุบัติเหตุ" <?php if ($selected_symptom == "อุบัติเหตุ") echo "selected"; ?>>อุบัติเหตุ</option>
+                        <option value="อาการป่วย" <?php if ($selected_symptom == "อาการป่วย") echo "selected"; ?>>อาการป่วย</option>
+                        <option value="อื่นๆ" <?php if ($selected_symptom == "อื่นๆ") echo "selected"; ?>>อื่นๆ</option>
                     </select>
 
                     <label for="filter-hospital">โรงพยาบาล:</label>
                     <select id="filter-hospital-list" class="filter-select">
-                        <option value="" selected hidden>กรุณาเลือกโรงพยาบาล</option>
-                        <option value="0" selected>ทั้งหมด</option>
-                        <option value="1">โรงพยาบาลศูนย์มะเร็งกรุงเทพฯ</option>
-                        <option value="2">โรงพยาบาลมนารมย์</option>
-                        <option value="3">โรงพยาบาลปิยะเวท</option>
-                        <option value="4">โรงพยาบาลเสรีรักษ์</option>
-                        <option value="5">โรงพยาบาลจงจินต์มูลนิธิ</option>
-                        <option value="6">โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล แยกไฟฉาย</option>
-                        <option value="7">โรงพยาบาลกมล ศัลยกรรมตกแต่งและแปลงเพศ</option>
-                        <option value="8">โรงพยาบาลจักษุ รัตนิน</option>
-                        <option value="9">โรงพยาบาลสถาบันโรคไตภูมิราชนครินทร์</option>
-                        <option value="10">โรงพยาบาลเบทเทอร์บีอิ้ง</option>
-                        <option value="11">โรงพยาบาลยันฮี</option>
-                        <option value="12">โรงพยาบาลผู้สูงอายุกล้วยน้ำไท 2</option>
-                        <option value="13">โรงพยาบาลคามิลเลียน</option>
-                        <option value="14">โรงพยาบาลบางปะกอก 9 อินเตอร์เนชั่นแนล</option>
-                        <option value="15">โรงพยาบาลเกษมราษฎร์ รามคำแหง</option>
-                        <option value="16">โรงพยาบาลบางขุนเทียน 1</option>
-                        <option value="17">โรงพยาบาลธนบุรี บำรุงเมือง</option>
-                        <option value="18">โรงพยาบาลวิมุต</option>
-                        <option value="19">โรงพยาบาลตำรวจ</option>
-                        <option value="20">โรงพยาบาลเลิดสิน</option>
-                        <option value="21">โรงพยาบาลนพรัตนราชธานี</option>
-                        <option value="22">โรงพยาบาลราชวิถี</option>
-                        <option value="23">โรงพยาบาลสงฆ์</option>
-                        <option value="24">โรงพยาบาลพระมงกุฎเกล้า</option>
-                        <option value="25">โรงพยาบาลภูมิพลอดุลยเดช</option>
-                        <option value="26">โรงพยาบาลทหารผ่านศึก</option>
-                        <option value="27">โรงพยาบาลศิริราช</option>
-                        <option value="28">โรงพยาบาลสมเด็จพระปิ่นเกล้า</option>
-                        <option value="29">โรงพยาบาลจุฬาลงกรณ์</option>
-                        <option value="30">โรงพยาบาลรามาธิบดี</option>
-                        <option value="31">คณะแพทยศาสตร์วชิรพยาบาล มหาวิทยาลัยนวมินทราธิราช</option>
-                        <option value="32">โรงพยาบาลลาดกระบังกรุงเทพมหานคร</option>
-                        <option value="33">โรงพยาบาลคลองสามวา</option>
-                        <option value="34">โรงพยาบาลบางนากรุงเทพมหานคร</option>
-                        <option value="35">โรงพยาบาลเวชศาสตร์เขตร้อน</option>
-                        <option value="36">โรงพยาบาลนวุติสมเด็จย่า</option>
-                        <option value="37">โรงพยาบาลประสานมิตร</option>
-                        <option value="38">โรงพยาบาลทหารเรือกรุงเทพ</option>
-                        <option value="39">โรงพยาบาลมูลนิธิมิราเคิล ออฟไลฟ์</option>
-                        <option value="40">ทัณฑสถานโรงพยาบาลราชทัณฑ์</option>
-                        <option value="41">โรงพยาบาลจุฬาภรณ์</option>
-                        <option value="42">สถาบันสุขภาพเด็กแห่งชาติมหาราชินี</option>
-                        <option value="43">โรงพยาบาลศิริราช ปิยมหาราชการุณย์</option>
-                        <option value="44">โรงพยาบาลพระจอมเกล้าเจ้าคุณทหาร</option>
-                        <option value="45">โรงพยาบาลการไฟฟ้านครหลวง</option>
-                        <option value="46">โรงพยาบาลสวนเบญจกิติเฉลิมพระเกียรติ 84 พรรษา</option>
-                        <option value="47">โรงพยาบาลเจริญกรุงประชารักษ์</option>
-                        <option value="48">โรงพยาบาลกลาง</option>
-                        <option value="49">โรงพยาบาลตากสิน</option>
-                        <option value="50">โรงพยาบาลสิรินธร</option>
-                        <option value="51">โรงพยาบาลราชพิพัฒน์</option>
-                        <option value="52">โรงพยาบาลหลวงพ่อทวีศักดิ์ ชุตินฺธโร อุทิศ</option>
-                        <option value="53">โรงพยาบาลเวชการุณย์รัศมิ์</option>
-                        <option value="54">โรงพยาบาลนคราภิบาล</option>
-                        <option value="55">โรงพยาบาลผู้สูงอายุบางขุนเทียน</option>
-                        <option value="56">โรงพยาบาลรัตนประชารักษ์</option>
-                        <option value="57">โรงพยาบาลบางนากรุงเทพมหานคร</option>
-                        <option value="58">โรงพยาบาลกรุงเทพ</option>
-                        <option value="59">โรงพยาบาล กรุงเทพคริสเตียน</option>
-                        <option value="60">โรงพยาบาลกล้วยน้ำไท</option>
-                        <option value="61">โรงพยาบาลเกษมราษฎร์ บางแค</option>
-                        <option value="62">โรงพยาบาลเกษมราษฎร์ ประชาชื่น</option>
-                        <option value="63">โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล หนองแขม</option>
-                        <option value="64">โรงพยาบาลเจ้าพระยา</option>
-                        <option value="65">โรงพยาบาลซีจีเอช</option>
-                        <option value="66">โรงพยาบาลซีจีเอช สายไหม</option>
-                        <option value="67">โรงพยาบาลเซนต์หลุยส์</option>
-                        <option value="68">โรงพยาบาลเทพธารินทร์</option>
-                        <option value="69">โรงพยาบาลไทยนครินทร์</option>
-                        <option value="70">โรงพยาบาลธนบุรี 1</option>
-                        <option value="71">โรงพยาบาลธนบุรี 2</option>
-                        <option value="72">โรงพยาบาลนครธน</option>
-                        <option value="73">โรงพยาบาลนวมินทร์ 9</option>
-                        <option value="74">โรงพยาบาลนวมินทร์</option>
-                        <option value="75">โรงพยาบาลบางนา 1</option>
-                        <option value="76">โรงพยาบาลบางปะกอก 1</option>
-                        <option value="77">โรงพยาบาลบางปะกอก 8</option>
-                        <option value="78">โรงพยาบาลบางไผ่</option>
-                        <option value="79">โรงพยาบาลบางโพ</option>
-                        <option value="80">โรงพยาบาลบางมด</option>
-                        <option value="81">โรงพยาบาลบํารุงราษฎร์</option>
-                        <option value="82">โรงพยาบาลบี.แคร์ เมดิคอลเซ็นเตอร์</option>
-                        <option value="83">โรงพยาบาลบีเอ็นเอช</option>
-                        <option value="85">โรงพยาบาลประชาพัฒน์</option>
-                        <option value="86">โรงพยาบาลเปาโล เกษตร</option>
-                        <option value="87">โรงพยาบาลเปาโล เมโมเรียล</option>
-                        <option value="88">โรงพยาบาลเปาโล เมโมเรียล โชคชัย4</option>
-                        <option value="89">โรงพยาบาลพญาไท 1</option>
-                        <option value="90">โรงพยาบาลพญาไท 2</option>
-                        <option value="91">โรงพยาบาลพญาไท 3</option>
-                        <option value="92">โรงพยาบาลพญาไท นวมินทร์</option>
-                        <option value="93">โรงพยาบาลพระรามเก้า</option>
-                        <option value="94">โรงพยาบาลพีเอ็มจี</option>
-                        <option value="95">โรงพยาบาลเพชรเวช</option>
-                        <option value="96">โรงพยาบาลแพทย์ปัญญา</option>
-                        <option value="97">โรงพยาบาลมงกุฎวัฒนะ</option>
-                        <option value="98">โรงพยาบาลมเหสักข์</option>
-                        <option value="99">โรงพยาบาลมิชชั่น</option>
-                        <option value="100">โรงพยาบาลมิตรประชา</option>
-                        <option value="101">โรงพยาบาลเมดพาร์ค</option>
-                        <option value="102">โรงพยาบาลรามคำแหง</option>
-                        <option value="103">โรงพยาบาลราษฏร์บูรณะ</option>
-                        <option value="104">โรงพยาบาลลาดพร้าว</option>
-                        <option value="105">โรงพยาบาลวิชัยยุทธ</option>
-                        <option value="106">โรงพยาบาลวิชัยยุทธ</option>
-                        <option value="107">โรงพยาบาลวิชัยเวช แยกไฟฉาย</option>
-                        <option value="108">โรงพยาบาลวิภาราม</option>
-                        <option value="109">โรงพยาบาลวิภาวดี</option>
-                        <option value="110">โรงพยาบาลเวชธานี</option>
-                        <option value="111">โรงพยาบาลศิครินทร์</option>
-                        <option value="112">โรงพยาบาลศิริราชปิยมหาราชการุณย์</option>
-                        <option value="113">โรงพยาบาลสมิติเวช ไชน่าทาวน์</option>
-                        <option value="114">โรงพยาบาลสมิติเวช ธนบุรี (กรุงธน)</option>
-                        <option value="115">โรงพยาบาลสมิติเวช ศรีนครินทร์</option>
-                        <option value="116">โรงพยาบาลสมิติเวช สุขุมวิท</option>
-                        <option value="117">โรงพยาบาลสหวิทยาการมะลิ</option>
-                        <option value="118">โรงพยาบาลสินแพทย์</option>
-                        <option value="119">โรงพยาบาลสินแพทย์ ศรีนครินทร์</option>
-                        <option value="120">โรงพยาบาลสุขุมวิท</option>
-                        <option value="121">โรงพยาบาลหัวเฉียว</option>
-                        <option value="122">โรงพยาบาลอินทรารัตน์</option>
-                        <option value="123">Kamol Cosmetic Hospital</option>
-                        <option value="124">โรงพยาบาลกล้วยน้ำไท 1</option>
-                        <option value="125">โรงพยาบาลจุฬารัตน์ 7</option>
-                        <option value="126">โรงพยาบาลสุขสวัสดิ์</option>
-                        <option value="127">โรงพยาบาลพรมงคลเทพมุนี</option>
+                        <option value="ทั้งหมด" <?php if ($selected_hospital == "ทั้งหมด") echo "selected"; ?>>ทั้งหมด</option>
+                        <?php foreach ($hospital_options as $hospital) : ?>
+                            <option value="<?php echo $hospital; ?>" <?php if ($selected_hospital == $hospital) echo "selected"; ?>>
+                                <?php echo $hospital; ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
-
-
-
-                    <label for="filter-zone">เขตที่รับแจ้งเหตุ:</label>
-                    <select id="filter-zone-list" class="filter-select">
-                        <option value="" selected hidden>กรุณาเลือกเขต</option>
-                        <option value="ทั้งหมด" selected>ทั้งหมด</option>
-                        <option value="พระนคร">พระนคร</option>
-                        <option value="ดุสิต">ดุสิต</option>
-                        <option value="หนองจอก">หนองจอก</option>
-                        <option value="บางรัก">บางรัก</option>
-                        <option value="บางเขน">บางเขน</option>
-                        <option value="บางกะปิ">บางกะปิ</option>
-                        <option value="ปทุมวัน">ปทุมวัน</option>
-                        <option value="ป้อมปราบศัตรูพ่าย">ป้อมปราบศัตรูพ่าย</option>
-                        <option value="พระโขนง">พระโขนง</option>
-                        <option value="มีนบุรี">มีนบุรี</option>
-                        <option value="ลาดกระบัง">ลาดกระบัง</option>
-                        <option value="ยานนาวา">ยานนาวา</option>
-                        <option value="สัมพันธวงศ์">สัมพันธวงศ์</option>
-                        <option value="พญาไท">พญาไท</option>
-                        <option value="ธนบุรี">ธนบุรี</option>
-                        <option value="บางกอกใหญ่">บางกอกใหญ่</option>
-                        <option value="ห้วยขวาง">ห้วยขวาง</option>
-                        <option value="คลองสาน">คลองสาน</option>
-                        <option value="ตลิ่งชัน">ตลิ่งชัน</option>
-                        <option value="บางกอกน้อย">บางกอกน้อย</option>
-                        <option value="บางขุนเทียน">บางขุนเทียน</option>
-                        <option value="ภาษีเจริญ">ภาษีเจริญ</option>
-                        <option value="หนองแขม">หนองแขม</option>
-                        <option value="ราษฎร์บูรณะ">ราษฎร์บูรณะ</option>
-                        <option value="บางพลัด">บางพลัด</option>
-                        <option value="ดินแดง">ดินแดง</option>
-                        <option value="บึงกุ่ม">บึงกุ่ม</option>
-                        <option value="สาทร">สาทร</option>
-                        <option value="บางซื่อ">บางซื่อ</option>
-                        <option value="จตุจักร">จตุจักร</option>
-                        <option value="บางคอแหลม">บางคอแหลม</option>
-                        <option value="ประเวศ">ประเวศ</option>
-                        <option value="คลองเตย">คลองเตย</option>
-                        <option value="สวนหลวง">สวนหลวง</option>
-                        <option value="จอมทอง">จอมทอง</option>
-                        <option value="ดอนเมือง">ดอนเมือง</option>
-                        <option value="ราชเทวี">ราชเทวี</option>
-                        <option value="ลาดพร้าว">ลาดพร้าว</option>
-                        <option value="วัฒนา">วัฒนา</option>
-                        <option value="บางแค">บางแค</option>
-                        <option value="หลักสี่">หลักสี่</option>
-                        <option value="สายไหม">สายไหม</option>
-                        <option value="คันนายาว">คันนายาว</option>
-                        <option value="สะพานสูง">สะพานสูง</option>
-                        <option value="วังทองหลาง">วังทองหลาง</option>
-                        <option value="คลองสามวา">คลองสามวา</option>
-                        <option value="บางนา">บางนา</option>
-                        <option value="ทวีวัฒนา">ทวีวัฒนา</option>
-                        <option value="บางบอน">บางบอน</option>
-                    </select>
-
-
 
 
                 </div>
@@ -421,6 +275,55 @@ $conn->close();
                 }
             }
         });
+        const originalLabels = [...labels]; // Store original labels
+        const originalMaleData = [...maleData]; // Store original male data
+        const originalFemaleData = [...femaleData]; // Store original female data
+
+        document.getElementById('filter-symtom-list').addEventListener('change', function() {
+            const symptom = this.value;
+
+            if (symptom === 'ทั้งหมด') {
+                // Show all data
+                mychart.data.labels = originalLabels;
+                mychart.data.datasets[0].data = originalMaleData;
+                mychart.data.datasets[1].data = originalFemaleData;
+            } else if (symptom === 'อื่นๆ') {
+                // Filter out labels that don't contain 'อุบัติเหตุ' or 'อาการป่วย'
+                const filteredIndices = originalLabels.reduce((acc, label, index) => {
+                    if (!label.includes('อุบัติเหตุ') && !label.includes('อาการป่วย')) {
+                        acc.push(index);
+                    }
+                    return acc;
+                }, []);
+
+                const filteredLabels = filteredIndices.map(i => originalLabels[i]);
+                const filteredMaleData = filteredIndices.map(i => originalMaleData[i]);
+                const filteredFemaleData = filteredIndices.map(i => originalFemaleData[i]);
+
+                mychart.data.labels = filteredLabels;
+                mychart.data.datasets[0].data = filteredMaleData;
+                mychart.data.datasets[1].data = filteredFemaleData;
+            } else {
+                // Filter data based on selected symptom (อุบัติเหตุ or อาการป่วย)
+                const filteredIndices = originalLabels.reduce((acc, label, index) => {
+                    if (label.includes(symptom)) {
+                        acc.push(index);
+                    }
+                    return acc;
+                }, []);
+
+                const filteredLabels = filteredIndices.map(i => originalLabels[i]);
+                const filteredMaleData = filteredIndices.map(i => originalMaleData[i]);
+                const filteredFemaleData = filteredIndices.map(i => originalFemaleData[i]);
+
+                mychart.data.labels = filteredLabels;
+                mychart.data.datasets[0].data = filteredMaleData;
+                mychart.data.datasets[1].data = filteredFemaleData;
+            }
+
+            mychart.update();
+        });
+
         document.getElementById('filter-gender-list').addEventListener('change', function() {
             const gender = this.value;
 
@@ -474,23 +377,69 @@ $conn->close();
             });
 
         });
-        // // สคริปต์สำหรับแสดงค่าของ Slider
-        // const slider = document.getElementById("priceRange");
-        // const value = document.getElementById("value");
 
-        // const updateValue = () => {
-        //     value.textContent = slider.value;
-        // }
-        // slider.oninput = updateValue;
-        // updateValue();
-        // ตั้งค่าปฏิทิน Flatpickr
         flatpickr("#calendarSelect", {
-            dateFormat: "Y-m-d", // รูปแบบวันที่เป็น YYYY-MM-DD
-            onChange: function(selectedDates, dateStr, instance) {
-                // เมื่อผู้ใช้เลือกวันที่, เรียกใช้งานฟังก์ชัน updateChart
-                updateChart(dateStr);
-            }
+            dateFormat: "Y-m-d",
+            defaultDate: "<?php echo $selected_date; ?>",
+            onChange: updateFilters
         });
+
+
+        function updateFilters() {
+            const date = document.getElementById("calendarSelect").value;
+            const gender = document.getElementById("filter-gender-list").value;
+            const minAge = document.getElementById("minAge").value;
+            const maxAge = document.getElementById("maxAge").value;
+            const symptom = document.getElementById("filter-symtom-list").value;
+            const hospital = document.getElementById("filter-hospital-list").value;
+
+            // สร้าง URL Query
+            const params = new URLSearchParams({
+                date,
+                gender,
+                min_age: minAge,
+                max_age: maxAge,
+                symptom,
+                hospital,
+            });
+
+            // อัปเดต URL โดยไม่โหลดหน้าใหม่
+            const newUrl = window.location.pathname + "?" + params.toString();
+            window.history.replaceState({}, "", newUrl);
+
+            // โหลดข้อมูลใหม่ผ่าน AJAX
+            fetch(newUrl)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+
+                    // อัปเดตข้อมูลกราฟใหม่
+                    const newLabels = JSON.parse(doc.getElementById('chart-labels').textContent);
+                    const newMaleData = JSON.parse(doc.getElementById('chart-maleData').textContent);
+                    const newFemaleData = JSON.parse(doc.getElementById('chart-femaleData').textContent);
+
+                    // อัปเดตกราฟ Chart.js
+                    mychart.data.labels = newLabels;
+                    mychart.data.datasets[0].data = newMaleData;
+                    mychart.data.datasets[1].data = newFemaleData;
+                    mychart.update();
+                })
+                .catch(error => console.error('Error fetching updated data:', error));
+        }
+
+
+
+        document.getElementById("calendarSelect").flatpickr({
+            dateFormat: "Y-m-d",
+            onChange: updateFilters
+        });
+        document.getElementById("filter-gender-list").addEventListener("change", updateFilters); // ใช้ ID ถูกต้อง
+        document.getElementById("filter-symtom-list").addEventListener("change", updateFilters); // ใช้ ID ถูกต้อง
+        document.getElementById("minAge").addEventListener("input", updateFilters);
+        document.getElementById("maxAge").addEventListener("input", updateFilters);
+        document.getElementById("filter-hospital-list").addEventListener("change", updateFilters);
+
     </script>
 </body>
 
