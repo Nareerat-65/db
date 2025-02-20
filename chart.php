@@ -16,6 +16,8 @@ $selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 $selected_gender = isset($_GET['gender']) ? $_GET['gender'] : "ทั้งหมด";
 $selected_symptom = isset($_GET['symptom']) ? $_GET['symptom'] : "ทั้งหมด";
 $selected_hospital = isset($_GET['hospital']) ? $_GET['hospital'] : "ทั้งหมด";
+$selected_zone = isset($_GET['zone']) ? $_GET['zone'] : "ทั้งหมด";
+
 
 
 // สร้าง WHERE Clause ตามฟิลเตอร์ที่เลือก
@@ -36,6 +38,10 @@ if ($selected_symptom !== "ทั้งหมด") {
 if ($selected_hospital !== "ทั้งหมด") {
     $where_clause .= " AND hospital_waypoint = '$selected_hospital'";
 }
+if ($selected_zone !== "ทั้งหมด") {
+    $where_clause .= " AND emergency_case_zone = '$selected_zone'";
+}
+
 
 
 // Query ดึงข้อมูล
@@ -70,6 +76,17 @@ if ($hospital_result->num_rows > 0) {
         $hospital_options[] = $row['hospital_waypoint'];
     }
 }
+
+$zone_query = "SELECT DISTINCT emergency_case_zone FROM emergency_case";
+$zone_result = $conn->query($zone_query);
+
+$zone_options = [];
+if ($zone_result->num_rows > 0) {
+    while ($row = $zone_result->fetch_assoc()) {
+        $zone_options[] = $row['emergency_case_zone'];
+    }
+}
+
 
 
 $conn->close();
@@ -205,6 +222,17 @@ $conn->close();
                             </option>
                         <?php endforeach; ?>
                     </select>
+
+                    <label for="filter-zone">เขตพื้นที่เกิดเหตุ:</label>
+                    <select id="filter-zone-list" class="filter-select">
+                        <option value="ทั้งหมด" <?php if ($selected_zone == "ทั้งหมด") echo "selected"; ?>>ทั้งหมด</option>
+                        <?php foreach ($zone_options as $zone) : ?>
+                            <option value="<?php echo $zone; ?>" <?php if ($selected_zone == $zone) echo "selected"; ?>>
+                                <?php echo $zone; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+
 
 
                 </div>
@@ -392,6 +420,7 @@ $conn->close();
             const maxAge = document.getElementById("maxAge").value;
             const symptom = document.getElementById("filter-symtom-list").value;
             const hospital = document.getElementById("filter-hospital-list").value;
+            const zone = document.getElementById("filter-zone-list").value;
 
             // สร้าง URL Query
             const params = new URLSearchParams({
@@ -401,6 +430,7 @@ $conn->close();
                 max_age: maxAge,
                 symptom,
                 hospital,
+                zone
             });
 
             // อัปเดต URL โดยไม่โหลดหน้าใหม่
@@ -439,6 +469,7 @@ $conn->close();
         document.getElementById("minAge").addEventListener("input", updateFilters);
         document.getElementById("maxAge").addEventListener("input", updateFilters);
         document.getElementById("filter-hospital-list").addEventListener("change", updateFilters);
+        document.getElementById("filter-zone-list").addEventListener("change", updateFilters);
 
     </script>
 </body>
