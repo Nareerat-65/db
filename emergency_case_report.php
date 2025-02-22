@@ -23,35 +23,35 @@ $selected_hospital = isset($_GET['hospital']) ? $_GET['hospital'] : "ทั้�
 $selected_zone = isset($_GET['zone']) ? $_GET['zone'] : "ทั้งหมด";
 
 // สร้าง WHERE Clause ตามฟิลเตอร์ที่เลือก
-$where_clause = "WHERE report_patient_age BETWEEN $min_age AND $max_age";
+$where_clause = "WHERE emergency_case_report_patient_age BETWEEN $min_age AND $max_age";
 if ($selected_date) {
-    $where_clause .= " AND DATE(report_date) = '$selected_date'";
+    $where_clause .= " AND DATE(emergency_case_report_date) = '$selected_date'";
 }
 if ($selected_gender !== "ทั้งหมด") {
-    $where_clause .= " AND report_patient_gender = '$selected_gender'";
+    $where_clause .= " AND emergency_case_report_patient_gender = '$selected_gender'";
 }
 if ($selected_symptom !== "ทั้งหมด") {
     if ($selected_symptom === "อื่นๆ") {
-        $where_clause .= " AND report_reason NOT LIKE '%อุบัติเหตุ%' AND report_reason NOT LIKE '%อาการป่วย%'";
+        $where_clause .= " AND emergency_case_report_reason NOT LIKE '%อุบัติเหตุ%' AND emergency_case_report_reason NOT LIKE '%อาการป่วย%'";
     } else {
-        $where_clause .= " AND report_reason LIKE '%$selected_symptom%'";
+        $where_clause .= " AND emergency_case_report_reason LIKE '%$selected_symptom%'";
     }
 }
 if ($selected_hospital !== "ทั้งหมด") {
-    $where_clause .= " AND hospital_waypoint = '$selected_hospital'";
+    $where_clause .= " AND emergency_case_report_hospital_waypoint = '$selected_hospital'";
 }
 if ($selected_zone !== "ทั้งหมด") {
-    $where_clause .= " AND emergency_case_zone = '$selected_zone'";
+    $where_clause .= " AND emergency_case_report_zone = '$selected_zone'";
 }
 
 // Query ดึงข้อมูล
 $sql = "SELECT 
-    report_reason,
-    SUM(CASE WHEN report_patient_gender = 'ชาย' THEN 1 ELSE 0 END) as male_count,
-    SUM(CASE WHEN report_patient_gender = 'หญิง' THEN 1 ELSE 0 END) as female_count
-    FROM emergency_case 
+    emergency_case_report_reason,
+    SUM(CASE WHEN emergency_case_report_patient_gender = 'ชาย' THEN 1 ELSE 0 END) as male_count,
+    SUM(CASE WHEN emergency_case_report_patient_gender = 'หญิง' THEN 1 ELSE 0 END) as female_count
+    FROM emergency_case_report 
     $where_clause
-    GROUP BY report_reason";
+    GROUP BY emergency_case_report_reason";
 
 $result = $conn->query($sql);
 
@@ -62,31 +62,31 @@ $femaleData = [];
 
 if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $labels[] = $row['report_reason'];
+        $labels[] = $row['emergency_case_report_reason'];   
         $maleData[] = $row['male_count'];
         $femaleData[] = $row['female_count'];
     }
 }
 
 // Query ดึงข้อมูลโรงพยาบาล
-$hospital_query = "SELECT DISTINCT hospital_waypoint FROM emergency_case";
+$hospital_query = "SELECT DISTINCT emergency_case_report_hospital_waypoint FROM emergency_case_report";
 $hospital_result = $conn->query($hospital_query);
 
 $hospital_options = [];
 if ($hospital_result->num_rows > 0) {
     while ($row = $hospital_result->fetch_assoc()) {
-        $hospital_options[] = $row['hospital_waypoint'];
+        $hospital_options[] = $row['emergency_case_report_hospital_waypoint'];
     }
 }
 
 // Query ดึงข้อมูลเขตพื้นที่เกิดเหตุ
-$zone_query = "SELECT DISTINCT emergency_case_zone FROM emergency_case";
+$zone_query = "SELECT DISTINCT emergency_case_report_zone FROM emergency_case_report";
 $zone_result = $conn->query($zone_query);
 
 $zone_options = [];
 if ($zone_result->num_rows > 0) {
     while ($row = $zone_result->fetch_assoc()) {
-        $zone_options[] = $row['emergency_case_zone'];
+        $zone_options[] = $row['emergency_case_report_zone'];
     }
 }
 
@@ -138,7 +138,6 @@ $conn->close();
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-
     </style>
 </head>
 
@@ -233,6 +232,8 @@ $conn->close();
         const maleData = <?php echo json_encode($maleData); ?>;
         const femaleData = <?php echo json_encode($femaleData); ?>;
 
+        Chart.defaults.elements.bar.borderRadius = 5;
+
         // สร้างกราฟด้วย Chart.js
         const mychart = new Chart(document.getElementById("case"), {
             type: 'bar',
@@ -243,13 +244,13 @@ $conn->close();
                     data: maleData,
                     backgroundColor: 'rgba(54, 162, 235, 0.5)',
                     borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
+                    borderWidth: 2
                 }, {
                     label: 'หญิง',
                     data: femaleData,
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                     borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
+                    borderWidth: 2
                 }]
             },
             options: {
@@ -267,13 +268,21 @@ $conn->close();
                         title: {
                             display: true,
                             text: 'จำนวนผู้ป่วย'
+                        },
+                        ticks: {
+                            beginAtZero: true,
+                            stepSize: 1
                         }
                     }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutCubic'
                 },
                 plugins: {
                     title: {
                         display: true,
-                        text: 'สถิติผู้ป่วยฉุกเฉินแยกตามสาเหตุและเพศ',
+                        text: 'สถิติผู้ป่วยฉุกเฉินแยกตามสาเหตุ',
                         font: {
                             size: 18
                         }
